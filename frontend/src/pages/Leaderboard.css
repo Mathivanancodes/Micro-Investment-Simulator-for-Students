@@ -1,0 +1,184 @@
+.leaderboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Podium Layout */
+.podium-section {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .podium-section {
+    grid-template-columns: 1fr;
+    align-items: center;
+  }
+}
+
+.podium-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem !important;
+  position: relative;
+}
+
+.spot-1 {
+  height: 280px;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+  background: radial-gradient(circle at top, rgba(245, 158, 11, 0.05) 0%, var(--bg-surface) 100%) !important;
+}
+
+.spot-2 {
+  height: 240px;
+}
+
+.spot-3 {
+  height: 220px;
+}
+
+.podium-badge {
+  position: absolute;
+  top: -1.25rem;
+}
+
+.podium-badge.gold { color: #F59E0B; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5)); }
+.podium-badge.silver { color: #9CA3AF; filter: drop-shadow(0 0 8px rgba(156, 163, 175, 0.4)); }
+.podium-badge.bronze { color: #D97706; filter: drop-shadow(0 0 8px rgba(217, 119, 6, 0.4)); }
+
+.podium-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+.spot-1 .podium-avatar {
+  border-color: #F59E0B;
+}
+
+.podium-spot h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.podium-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.podium-return {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-success);
+  margin-top: 0.25rem;
+}
+
+/* Standings List Table */
+.standings-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+  border-left: 3px solid var(--brand-primary);
+  padding-left: 0.75rem;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.standings-table th {
+  padding: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.02em;
+}
+
+.standings-table td {
+  padding: 1.15rem 1rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.rank-col {
+  width: 80px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.rank-number {
+  color: var(--text-secondary);
+}
+
+.rank-badge.gold { color: #F59E0B; }
+.rank-badge.silver { color: #9CA3AF; }
+.rank-badge.bronze { color: #D97706; }
+
+.student-name-col {
+  font-weight: 600;
+}
+
+.you-tag {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60A5FA;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+}
+
+.current-user-row {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.current-user-row td {
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  font-weight: 600;
+}
+
+.current-user-row .student-name-col {
+  color: #60A5FA;
+}
+
+.value-col {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.return-col {
+  font-weight: 600;
+}
+
+.return-col.positive {
+  color: var(--brand-success);
+}
+
+.return-col.negative {
+  color: var(--brand-danger);
+}

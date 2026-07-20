@@ -1,0 +1,34 @@
+# Java/Maven build directories
+**/target/
+**/build/
+.mvn/
+
+# Node/React dependencies and build files
+**/node_modules/
+**/dist/
+**/build-frontend/
+
+# IDE and Editor configs
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+bin/
+tmp/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log

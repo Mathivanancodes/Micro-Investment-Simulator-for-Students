@@ -1,0 +1,15 @@
+.portfolio-value-chart {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.chart-placeholder {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
