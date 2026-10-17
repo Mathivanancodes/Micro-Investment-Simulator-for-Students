@@ -1,82 +1,87 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import Trade from './pages/Trade';
-import Leaderboard from './pages/Leaderboard';
-import TransactionHistory from './pages/TransactionHistory';
-import Auth from './pages/Auth';
-import { api } from './services/api';
 import { RefreshCw } from 'lucide-react';
+import Navbar from './components/Navbar';
+import Auth from './pages/Auth';
+import { api, AUTH_EXPIRED_EVENT, clearSession, saveSession, errorMessage } from './services/api';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Trade = lazy(() => import('./pages/Trade'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const TransactionHistory = lazy(() => import('./pages/TransactionHistory'));
+const Wallet = lazy(() => import('./pages/Wallet'));
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
 
-  const checkAuth = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setIsAuthenticated(false);
+  const checkAuth = useCallback(async () => {
+    setLoading(true);
+    setSessionError('');
+    if (!localStorage.getItem('token')) {
+      setAuthenticated(false);
       setLoading(false);
       return;
     }
-
-    // Verify token validity by calling profile endpoint
-    api.getMe()
-      .then(() => {
-        setIsAuthenticated(true);
-      })
-      .catch((err) => {
-        console.error("Auth validation failed:", err);
-        // Clean up credentials if token expired
-        localStorage.clear();
-        setIsAuthenticated(false);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+    try {
+      const profile = await api.getMe();
+      saveSession(profile);
+      setAuthenticated(true);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        clearSession();
+        setAuthenticated(false);
+      } else {
+        // Keep credentials through a temporary connection or server failure.
+        setSessionError(errorMessage(error));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     checkAuth();
-  }, []);
-
-  const handleLoginSuccess = (data) => {
-    setIsAuthenticated(true);
-  };
+    const handleExpired = () => {
+      setAuthenticated(false);
+      setSessionError('');
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleExpired);
+  }, [checkAuth]);
 
   const handleLogout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
+    clearSession();
+    setAuthenticated(false);
+    setSessionError('');
   };
 
-  if (loading) {
-    return (
-      <div className="center-state" style={{ minHeight: '100vh' }}>
-        <RefreshCw className="spinner" size={40} />
-        <p>Verifying secure session...</p>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Auth onLoginSuccess={handleLoginSuccess} />;
-  }
+  if (loading) return <div className="center-state full-screen" role="status"><RefreshCw className="spinner" size={40} /><p>Verifying your session…</p></div>;
+  if (sessionError) return (
+    <div className="center-state full-screen">
+      <h1>Unable to check your session</h1><p role="alert">{sessionError}</p>
+      <button className="btn btn-primary" onClick={checkAuth}>Try again</button>
+      <button className="btn btn-refresh" onClick={handleLogout}>Back to sign in</button>
+    </div>
+  );
+  if (!authenticated) return <Auth onLoginSuccess={() => setAuthenticated(true)} />;
 
   return (
     <div className="app-container">
-      {/* Sidebar Navigation */}
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <Navbar onLogout={handleLogout} />
-      
-      {/* Primary Page Content Wrapper */}
-      <main className="main-content">
+      <main className="main-content" id="main-content">
+        <Suspense fallback={<div className="center-state" role="status"><RefreshCw className="spinner" size={32} /><p>Loading page…</p></div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/wallet" element={<Wallet />} />
           <Route path="/trade" element={<Trade />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/transactions" element={<TransactionHistory />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main>
     </div>
   );

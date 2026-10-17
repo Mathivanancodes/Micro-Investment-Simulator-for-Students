@@ -1,21 +1,7 @@
 package com.microinvestment.simulator.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class LeaderboardEntryDto {
-    private int rank;
-    private Long userId;
-    private String username;
-    private BigDecimal totalValue;
-    private BigDecimal returnRate;
-    private int tradesCount;
+public record LeaderboardEntryDto(Long userId, String name, BigDecimal totalValue, BigDecimal invested,
+                                  BigDecimal pnl, BigDecimal returnRate, long tradesCount, long rank) {
 }

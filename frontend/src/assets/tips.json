@@ -1,14 +1,14 @@
 {
   "FIRST_BUY": {
-    "title": "🎉 First Stock Purchased!",
-    "text": "Great job! You have officially entered the stock market. Keep in mind that stocks represent fractional ownership in real companies. Their prices react to market demand, company earnings, and general news."
+    "title": "Fractional investing in action",
+    "text": "A small investment buys part of a share. Start with ₹10–₹500, track the price, and see how your virtual holdings change over time. These are simulated prices, so no real shares or money change hands."
   },
   "LOSS_SALE": {
-    "title": "📉 Learning Opportunity: Selling at a Loss",
-    "text": "It's normal for stocks to go down. Sometimes investors sell at a loss to protect remaining capital or for tax harvesting, but long-term investors usually try to avoid panic selling during short-term dips."
+    "title": "Learning from a sale at a loss",
+    "text": "You sold below your average purchase price. Prices can fall as well as rise. Review why you bought, consider your time horizon, and avoid making decisions from a single short-term price change."
   },
   "DIVERSIFICATION": {
-    "title": "⚖️ Diversified Portfolio!",
-    "text": "You now hold stocks in 3 or more different assets. Diversification spreads risk across sectors, ensuring that a price drop in one stock doesn't sink your entire portfolio value."
+    "title": "Building a varied portfolio",
+    "text": "You now hold at least three different stocks. Spreading investments across businesses and sectors can reduce dependence on one company, although diversification cannot remove all risk."
   }
 }

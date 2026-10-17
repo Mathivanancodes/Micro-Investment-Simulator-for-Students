@@ -1,0 +1,8 @@
+.wallet-page { display: flex; flex-direction: column; gap: 2rem; }
+.wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.wallet-summary, .wallet-deposit { display: flex; flex-direction: column; align-items: flex-start; gap: 1.25rem; }
+.wallet-summary > svg { color: var(--brand-primary); }
+.wallet-summary p, .wallet-deposit > p { color: var(--text-secondary); line-height: 1.6; }
+.wallet-summary .wallet-balance { color: var(--text-primary); font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; overflow-wrap: anywhere; }
+.deposit-form { display: flex; flex-direction: column; gap: 1.25rem; width: 100%; }
+@media (max-width: 768px) { .wallet-grid { grid-template-columns: 1fr; } }

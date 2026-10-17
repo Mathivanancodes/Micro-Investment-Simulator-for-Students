@@ -1,92 +1,52 @@
 package com.microinvestment.simulator.scheduler;
 
-import com.microinvestment.simulator.model.PriceHistory;
-import com.microinvestment.simulator.model.Stock;
+import com.microinvestment.simulator.entity.PriceHistory;
+import com.microinvestment.simulator.entity.Stock;
 import com.microinvestment.simulator.repository.PriceHistoryRepository;
 import com.microinvestment.simulator.repository.StockRepository;
-import com.microinvestment.simulator.service.MarketDataClient;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import com.microinvestment.simulator.strategy.PriceStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Component
-@Slf4j
+@ConditionalOnProperty(name = "app.prices.enabled", havingValue = "true", matchIfMissing = true)
 public class PriceUpdateScheduler {
+    private static final Logger log = LoggerFactory.getLogger(PriceUpdateScheduler.class);
+    private final StockRepository stocks;
+    private final PriceHistoryRepository histories;
+    private final PriceStrategy strategy;
 
-    private final StockRepository stockRepository;
-    private final PriceHistoryRepository priceHistoryRepository;
-    private final MarketDataClient marketDataClient;
-
-    @Value("${market.data.api.key}")
-    private String apiKey;
-
-    @Autowired
-    public PriceUpdateScheduler(StockRepository stockRepository,
-                                PriceHistoryRepository priceHistoryRepository,
-                                MarketDataClient marketDataClient) {
-        this.stockRepository = stockRepository;
-        this.priceHistoryRepository = priceHistoryRepository;
-        this.marketDataClient = marketDataClient;
+    // INTERVIEW: Constructor injection makes required collaborators explicit and supports isolated tests.
+    public PriceUpdateScheduler(StockRepository stocks, PriceHistoryRepository histories, PriceStrategy strategy) {
+        this.stocks = stocks;
+        this.histories = histories;
+        this.strategy = strategy;
     }
 
-    /**
-     * Scheduled job that updates stock prices every 5 minutes.
-     * FixedRate is 300,000 milliseconds (5 minutes).
-     */
-    @Scheduled(fixedRate = 300000, initialDelay = 60000) // Delay first run by 1 minute to allow startup seeder to settle
+    @Scheduled(fixedDelayString = "${app.prices.interval-ms:30000}", initialDelayString = "${app.prices.interval-ms:30000}")
+    @Transactional
     public void updatePrices() {
-        log.info("Scheduled price update job starting...");
-        List<Stock> stocks = stockRepository.findAll();
-
-        if (stocks.isEmpty()) {
-            log.warn("No stocks found in the database. Scheduled update skipped.");
-            return;
-        }
-
-        boolean isMock = apiKey == null || 
-                         apiKey.trim().isEmpty() || 
-                         "YOUR_TWELVE_DATA_API_KEY_HERE".equalsIgnoreCase(apiKey.trim());
-
-        for (int i = 0; i < stocks.size(); i++) {
-            Stock stock = stocks.get(i);
-            try {
-                log.info("Updating price for stock: {}", stock.getSymbol());
-                BigDecimal newPrice = marketDataClient.fetchCurrentPrice(stock.getSymbol());
-
-                // Update Stock table
-                stock.setCurrentPrice(newPrice);
-                stockRepository.save(stock);
-
-                // Insert into PriceHistory table
-                PriceHistory history = PriceHistory.builder()
-                        .stockSymbol(stock.getSymbol())
-                        .price(newPrice)
-                        .build();
-                priceHistoryRepository.save(history);
-                
-                log.info("Successfully updated {} price to ${}", stock.getSymbol(), newPrice);
-
-                // Apply delay if NOT in mock mode and NOT the last item to prevent Twelve Data rate limit errors (max 8 requests/min)
-                if (!isMock && i < (stocks.size() - 1)) {
-                    log.info("Sleeping for 8 seconds to respect free API rate limits...");
-                    Thread.sleep(8000);
-                }
-
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                log.warn("Scheduled price update thread interrupted.", ie);
-                break; // Exit loop if thread is interrupted
-            } catch (Exception e) {
-                log.error("Error updating price for stock {}: {}", stock.getSymbol(), e.getMessage());
-                // Continue to the next stock since we wrap each iteration in try-catch
+        int updated = 0;
+        try {
+            for (Stock stock : stocks.findAll()) {
+                BigDecimal next = strategy.nextPrice(stock.getCurrentPrice());
+                stock.updatePrice(next);
+                histories.save(new PriceHistory(stock, next));
+                updated++;
             }
+        } catch (RuntimeException exception) {
+            // INTERVIEW: An unchecked exception rolls back both current prices and their history rows.
+            log.warn("Price update failed; the batch will roll back", exception);
+            throw exception;
+        } finally {
+            // INTERVIEW: finally runs after success or failure; commit occurs after this proxied method returns.
+            log.debug("Price update processed {} stocks; transaction completion follows", updated);
         }
-
-        log.info("Scheduled price update job completed.");
     }
 }

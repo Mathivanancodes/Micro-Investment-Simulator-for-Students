@@ -1,4 +1,3 @@
-import React from 'react';
 import './StatCard.css';
 
 const StatCard = ({ title, value, icon, trendText, trendValue, isPositive }) => {
@@ -15,7 +14,7 @@ const StatCard = ({ title, value, icon, trendText, trendValue, isPositive }) => 
         {showTrend && (
           <div className={`stat-card-trend ${isPositive ? 'positive' : 'negative'}`}>
             <span>
-              {isPositive ? '+' : ''}{trendValue}
+              {trendValue}
             </span>
             <span className="trend-text">{trendText}</span>
           </div>

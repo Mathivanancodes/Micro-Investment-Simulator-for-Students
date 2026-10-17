@@ -1,49 +1,28 @@
-import React, { useState } from 'react';
-import { api } from '../services/api';
+import { useState } from 'react';
 import { GraduationCap, Lock, Mail, User, RefreshCw, AlertTriangle } from 'lucide-react';
+import { api, errorMessage, saveSession } from '../services/api';
 import './Auth.css';
 
-const Auth = ({ onLoginSuccess }) => {
+export default function Auth({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!username || !password || (!isLogin && !email)) {
-      setError("Please fill out all required fields.");
-      return;
-    }
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      let data;
-      if (isLogin) {
-        data = await api.login(username, password);
-      } else {
-        data = await api.register(username, email, password);
-      }
-
-      // Store auth credentials
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userId', data.userId);
-      localStorage.setItem('username', data.username);
-
-      if (onLoginSuccess) {
-        onLoginSuccess(data);
-      }
-    } catch (err) {
-      console.error("Authentication error:", err);
-      if (err.response && err.response.data && err.response.data.error) {
-        setError(err.response.data.error);
-      } else {
-        setError("Connection failed. Make sure the Spring Boot backend is active.");
-      }
+      const data = isLogin
+        ? await api.login(email.trim(), password)
+        : await api.register(name.trim(), email.trim(), password);
+      saveSession(data);
+      onLoginSuccess();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || errorMessage(requestError));
     } finally {
       setLoading(false);
     }
@@ -52,91 +31,41 @@ const Auth = ({ onLoginSuccess }) => {
   return (
     <div className="auth-page animate-fade-in">
       <div className="auth-container glass-card">
-        <div className="auth-header">
-          <GraduationCap className="auth-logo-icon" size={48} />
-          <h2>ApexTrade</h2>
+        <header className="auth-header">
+          <GraduationCap className="auth-logo-icon" size={48} aria-hidden="true" />
+          <h1>ApexTrade</h1>
           <p>Micro-Investment Simulator for Students</p>
+          <p className="simulation-note">Start with ₹1,000 in virtual cash. Learn with simulated prices.</p>
+        </header>
+        <div className="auth-tabs" aria-label="Account access">
+          <button type="button" className={`tab-btn ${isLogin ? 'active' : ''}`} aria-pressed={isLogin} disabled={loading} onClick={() => { setIsLogin(true); setError(''); }}>Sign In</button>
+          <button type="button" className={`tab-btn ${!isLogin ? 'active' : ''}`} aria-pressed={!isLogin} disabled={loading} onClick={() => { setIsLogin(false); setError(''); }}>Create Account</button>
         </div>
-
-        <div className="auth-tabs">
-          <button 
-            type="button" 
-            className={`tab-btn ${isLogin ? 'active' : ''}`}
-            onClick={() => { setIsLogin(true); setError(''); }}
-          >
-            Sign In
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${!isLogin ? 'active' : ''}`}
-            onClick={() => { setIsLogin(false); setError(''); }}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {error && (
-          <div className="auth-error alert alert-danger animate-fade-in">
-            <AlertTriangle size={18} />
-            <span>{error}</span>
-          </div>
-        )}
-
+        {error && <div className="auth-error alert alert-danger" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span>{error}</span></div>}
         <form className="auth-form" onSubmit={handleSubmit}>
+          {!isLogin && <div className="form-group">
+            <label htmlFor="auth-name">Name</label>
+            <div className="input-with-icon"><User size={18} className="input-icon" aria-hidden="true" />
+              <input id="auth-name" type="text" autoComplete="name" placeholder="Your name" value={name} onChange={(event) => setName(event.target.value)} required minLength={2} maxLength={80} disabled={loading} />
+            </div>
+          </div>}
           <div className="form-group">
-            <label htmlFor="auth-username">Username</label>
-            <div className="input-with-icon">
-              <User size={18} className="input-icon" />
-              <input
-                id="auth-username"
-                type="text"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={loading}
-              />
+            <label htmlFor="auth-email">Email address</label>
+            <div className="input-with-icon"><Mail size={18} className="input-icon" aria-hidden="true" />
+              <input id="auth-email" type="email" autoComplete="email" placeholder="student@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required maxLength={100} disabled={loading} />
             </div>
           </div>
-
-          {!isLogin && (
-            <div className="form-group">
-              <label htmlFor="auth-email">Email Address</label>
-              <div className="input-with-icon">
-                <Mail size={18} className="input-icon" />
-                <input
-                  id="auth-email"
-                  type="email"
-                  placeholder="student@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-          )}
-
           <div className="form-group">
             <label htmlFor="auth-password">Password</label>
-            <div className="input-with-icon">
-              <Lock size={18} className="input-icon" />
-              <input
-                id="auth-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
+            <div className="input-with-icon"><Lock size={18} className="input-icon" aria-hidden="true" />
+              <input id="auth-password" type="password" autoComplete={isLogin ? 'current-password' : 'new-password'} placeholder={isLogin ? 'Your password' : 'At least 8 characters'} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={isLogin ? 1 : 8} maxLength={72} disabled={loading} />
             </div>
+            {!isLogin && <small>Use 8–72 characters.</small>}
           </div>
-
-          <button type="submit" className="btn btn-primary btn-auth-submit" disabled={loading}>
-            {loading ? <RefreshCw className="spinner" size={18} /> : (isLogin ? 'Sign In' : 'Create Wallet')}
-          </button>
+          <button type="submit" className="btn btn-primary btn-auth-submit" disabled={loading}>{loading ? <><RefreshCw className="spinner" size={18} aria-hidden="true" /> Please wait…</> : (isLogin ? 'Sign In' : 'Create Wallet')}</button>
         </form>
+        <p className="auth-disclaimer">For learning only. No real money or market orders.</p>
       </div>
     </div>
   );
-};
-
-export default Auth;
+}

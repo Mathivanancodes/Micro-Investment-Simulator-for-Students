@@ -32,3 +32,8 @@ Desktop.ini
 .env.test.local
 .env.production.local
 *.log
+
+# Local runtime state, generated credentials, and browser artifacts
+.local/
+playwright-report/
+test-results/

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: micro_investment
+      MYSQL_USER: simulator
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Run scripts/dev.sh to generate local credentials}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run scripts/dev.sh to generate local credentials}
+    ports:
+      - "127.0.0.1:${LOCAL_DB_PORT:-3307}:3306"
+    volumes:
+      - simulator_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u $$MYSQL_USER $$MYSQL_DATABASE -Nse 'SELECT 1'"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+volumes:
+  simulator_mysql:

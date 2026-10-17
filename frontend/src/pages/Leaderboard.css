@@ -30,17 +30,17 @@
 }
 
 .spot-1 {
-  height: 280px;
+  min-height: 280px;
   border-color: rgba(245, 158, 11, 0.25) !important;
   background: radial-gradient(circle at top, rgba(245, 158, 11, 0.05) 0%, var(--bg-surface) 100%) !important;
 }
 
 .spot-2 {
-  height: 240px;
+  min-height: 280px;
 }
 
 .spot-3 {
-  height: 220px;
+  min-height: 280px;
 }
 
 .podium-badge {
@@ -72,7 +72,7 @@
   border-color: #F59E0B;
 }
 
-.podium-spot h3 {
+.podium-spot h2 {
   font-size: 1.15rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
@@ -93,7 +93,7 @@
 }
 
 /* Standings List Table */
-.standings-section h3 {
+.standings-section h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -103,10 +103,15 @@
 }
 
 .standings-table {
+  min-width: 620px;
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
+
+.podium-rank { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; color: var(--text-secondary); }
+.podium-spot h2 { overflow-wrap: anywhere; max-width: 100%; }
+@media (max-width: 768px) { .podium-spot { min-height: 240px; } }
 
 .standings-table th {
   padding: 1rem;

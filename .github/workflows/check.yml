@@ -1,0 +1,55 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Unit, MySQL integration, frontend build and lint
+        run: ./scripts/check.sh
+      - name: Install browser tests
+        working-directory: e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Browser workflows
+        shell: bash
+        run: |
+          ./scripts/dev.sh > .local/ci-dev.log 2>&1 &
+          dev_pid=$!
+          trap 'kill "$dev_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8080/api/health >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:5173/ >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$dev_pid" 2>/dev/null; then
+              cat .local/ci-dev.log
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! "$ready"; then cat .local/ci-dev.log; exit 1; fi
+          npm --prefix e2e test

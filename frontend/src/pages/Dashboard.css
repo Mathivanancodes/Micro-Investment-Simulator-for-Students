@@ -38,7 +38,7 @@
 /* Stat Cards Grid */
 .stat-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 1.5rem;
 }
 
@@ -55,7 +55,7 @@
   }
 }
 
-.chart-card h3 {
+.chart-card h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -65,7 +65,7 @@
 }
 
 /* Holdings Section */
-.holdings-section h3 {
+.holdings-section h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -76,13 +76,17 @@
 
 .table-wrapper {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .holdings-table {
+  min-width: 680px;
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
+
+.dashboard-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
 .holdings-table th {
   padding: 1rem;

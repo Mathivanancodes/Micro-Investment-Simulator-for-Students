@@ -1,61 +1,68 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
+// Same-origin requests use the Vite proxy in development and a reverse proxy
+// in production. Deployments may override the API origin with VITE_API_URL.
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: import.meta.env.VITE_API_URL || '',
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Axios Request Interceptor to automatically append JWT Token from localStorage
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+export const AUTH_EXPIRED_EVENT = 'simulator:auth-expired';
+const AUTH_KEYS = ['token', 'userId', 'name', 'email', 'username'];
+
+export function clearSession() {
+  AUTH_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
+export function saveSession(data) {
+  if (data.token) localStorage.setItem('token', data.token);
+  localStorage.setItem('userId', String(data.userId));
+  localStorage.setItem('name', data.name);
+  localStorage.setItem('email', data.email);
+  localStorage.removeItem('username');
+}
+
+export function errorMessage(error, fallback = 'The request failed. Please try again.') {
+  if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
+  if (error.response?.data?.message) return error.response.data.message;
+  if (error.code === 'ECONNABORTED') return 'The server took too long to respond. Please try again.';
+  if (!error.response) return 'Unable to reach the server. Check your connection and try again.';
+  return fallback;
+}
+
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+apiClient.interceptors.response.use((response) => response, (error) => {
+  const isSignIn = /\/auth\/(login|register)$/.test(error.config?.url || '');
+  if (error.response?.status === 401 && !isSignIn) {
+    clearSession();
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
   }
-);
+  return Promise.reject(error);
+});
+
+const unwrap = (response) => response.data;
 
 export const api = {
-  // Authentication & Session
-  login: (username, password) => 
-    apiClient.post('/api/auth/login', { username, password }).then((res) => res.data),
-
-  register: (username, email, password) => 
-    apiClient.post('/api/auth/register', { username, email, password }).then((res) => res.data),
-
-  getMe: () => apiClient.get('/api/auth/me').then((res) => res.data),
-
-  // Portfolio Summary
-  getPortfolio: (userId) => apiClient.get(`/api/portfolio/${userId}`).then((res) => res.data),
-
-  // Transaction History
-  getTransactions: (userId) => apiClient.get(`/api/transactions/${userId}`).then((res) => res.data),
-
-  // Stocks Operations
-  getStocks: () => apiClient.get('/api/stocks').then((res) => res.data),
-  
-  getStockHistory: (symbol, days = 7) => 
-    apiClient.get(`/api/stocks/${symbol}/history`, { params: { days } }).then((res) => res.data),
-
-  // Trade Execution
-  buyStock: (userId, symbol, quantity) => 
-    apiClient.post('/api/trade/buy', { userId, symbol, quantity }).then((res) => res.data),
-    
-  sellStock: (userId, symbol, quantity) => 
-    apiClient.post('/api/trade/sell', { userId, symbol, quantity }).then((res) => res.data),
-
-  // Leaderboard Standing
-  getLeaderboard: () => apiClient.get('/api/leaderboard').then((res) => res.data),
-  
-  resetLeaderboard: () => apiClient.post('/api/leaderboard/reset').then((res) => res.data),
+  login: (email, password) => apiClient.post('/api/auth/login', { email, password }).then(unwrap),
+  register: (name, email, password) => apiClient.post('/api/auth/register', { name, email, password }).then(unwrap),
+  getMe: (config) => apiClient.get('/api/auth/me', config).then(unwrap),
+  getWallet: (userId, config) => apiClient.get(`/api/wallet/${userId}`, config).then(unwrap),
+  deposit: (userId, amount) => apiClient.post(`/api/wallet/${userId}/deposit`, { amount }).then(unwrap),
+  getPortfolio: (userId, config) => apiClient.get(`/api/portfolio/${userId}`, config).then(unwrap),
+  getTransactions: (userId, page = 0, size = 10, config = {}) =>
+    apiClient.get(`/api/transactions/${userId}`, { ...config, params: { page, size } }).then(unwrap),
+  getStocks: (config) => apiClient.get('/api/stocks', config).then(unwrap),
+  getStockHistory: (stockId, days = 7, config = {}) =>
+    apiClient.get(`/api/stocks/${stockId}/history`, { ...config, params: { days } }).then(unwrap),
+  buyStock: (userId, stockId, amount) => apiClient.post('/api/trade/buy', { userId, stockId, amount }).then(unwrap),
+  sellStock: (userId, stockId, quantity) => apiClient.post('/api/trade/sell', { userId, stockId, quantity }).then(unwrap),
+  getLeaderboard: (config) => apiClient.get('/api/leaderboard', config).then(unwrap),
 };
 
 export default api;

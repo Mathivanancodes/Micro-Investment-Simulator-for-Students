@@ -1,5 +1,5 @@
-import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { formatCurrency } from '../utils/format';
 import './PortfolioAllocationChart.css';
 
 const COLORS = [
@@ -27,13 +27,6 @@ const PortfolioAllocationChart = ({ holdings }) => {
     value: parseFloat(h.marketValue),
   }));
 
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(val);
-  };
-
   return (
     <div className="portfolio-allocation-chart">
       <ResponsiveContainer width="100%" height={260}>
@@ -48,7 +41,7 @@ const PortfolioAllocationChart = ({ holdings }) => {
             dataKey="value"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(17, 24, 39, 0.8)" strokeWidth={2} />
+              <Cell key={entry.name} fill={COLORS[index % COLORS.length]} stroke="rgba(17, 24, 39, 0.8)" strokeWidth={2} />
             ))}
           </Pie>
           <Tooltip

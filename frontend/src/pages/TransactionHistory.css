@@ -13,7 +13,7 @@
   padding-bottom: 1rem;
 }
 
-.history-section-header h3 {
+.history-section-header h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -24,10 +24,19 @@
 }
 
 .history-table {
+  min-width: 760px;
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
+
+.action-badge.deposit { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2); color: #93C5FD; }
+.transaction-count { margin-left: auto; color: var(--text-secondary); font-size: 0.85rem; }
+.pagination { margin-top: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem; color: var(--text-secondary); }
+.pagination label, .pagination-buttons { display: flex; align-items: center; gap: 0.75rem; }
+.pagination select { padding: 0.5rem; }
+.pagination .btn { padding: 0.6rem 1rem; }
+@media (max-width: 640px) { .history-section-header { flex-wrap: wrap; } .transaction-count { margin-left: 0; } }
 
 .history-table th {
   padding: 1rem;

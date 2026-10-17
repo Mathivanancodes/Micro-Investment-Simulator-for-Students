@@ -1,4 +1,5 @@
 .sidebar {
+  flex-shrink: 0;
   width: 260px;
   height: calc(100vh - 2rem);
   position: sticky;
@@ -92,11 +93,15 @@
   box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3);
 }
 
-.user-info h4 {
+.user-info h3 {
   font-size: 0.9rem;
   color: var(--text-primary);
   font-weight: 600;
 }
+
+.user-info { min-width: 0; }
+.user-info h3 { overflow-wrap: anywhere; }
+.menu-item.btn-logout { background: transparent; border: 0; width: 100%; text-align: left; cursor: pointer; }
 
 .user-info span {
   font-size: 0.75rem;

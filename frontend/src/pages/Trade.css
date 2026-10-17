@@ -5,6 +5,7 @@
 }
 
 .wallet-pill {
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -25,7 +26,7 @@
 
 .trade-grid {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.6fr);
   gap: 1.5rem;
 }
 
@@ -80,6 +81,9 @@
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: left;
+  color: var(--text-primary);
+  gap: 1rem;
 }
 
 .stock-item:hover {
@@ -175,10 +179,21 @@
   font-family: var(--font-display);
 }
 
-.stock-chart-section h4 {
+.stock-chart-section h3 {
   font-size: 0.95rem;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
+}
+
+.order-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.35rem; border-radius: 10px; }
+.market-status { display: flex; justify-content: space-between; align-items: center; gap: 1rem; color: var(--text-secondary); font-size: 0.8rem; }
+@media (max-width: 768px) {
+  .trade-grid { grid-template-columns: 1fr; }
+  .stocks-list-card { height: 320px; }
+  .selected-stock-header { gap: 1rem; }
+  .selected-stock-header h2, .selected-stock-price h3 { font-size: 1.25rem; }
+  .trade-form { padding: 1rem; }
+  .market-status { align-items: flex-start; flex-direction: column; }
 }
 
 /* Form Styling */

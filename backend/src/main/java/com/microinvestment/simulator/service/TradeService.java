@@ -1,209 +1,115 @@
 package com.microinvestment.simulator.service;
 
 import com.microinvestment.simulator.dto.TradeResponse;
-import com.microinvestment.simulator.exception.InsufficientBalanceException;
-import com.microinvestment.simulator.exception.InsufficientHoldingsException;
-import com.microinvestment.simulator.exception.StockNotFoundException;
-import com.microinvestment.simulator.exception.UserNotFoundException;
-import com.microinvestment.simulator.model.*;
+import com.microinvestment.simulator.entity.*;
+import com.microinvestment.simulator.exception.*;
 import com.microinvestment.simulator.repository.*;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Slf4j
 public class TradeService {
+    private final UserRepository users;
+    private final WalletRepository wallets;
+    private final StockRepository stocks;
+    private final HoldingRepository holdings;
+    private final TransactionRepository transactions;
 
-    private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
-    private final StockRepository stockRepository;
-    private final HoldingRepository holdingRepository;
-    private final TransactionRepository transactionRepository;
-
-    @Autowired
-    public TradeService(UserRepository userRepository,
-                        WalletRepository walletRepository,
-                        StockRepository stockRepository,
-                        HoldingRepository holdingRepository,
-                        TransactionRepository transactionRepository) {
-        this.userRepository = userRepository;
-        this.walletRepository = walletRepository;
-        this.stockRepository = stockRepository;
-        this.holdingRepository = holdingRepository;
-        this.transactionRepository = transactionRepository;
+    // INTERVIEW: Constructor injection makes required dependencies explicit and easy to mock.
+    public TradeService(UserRepository users, WalletRepository wallets, StockRepository stocks,
+                        HoldingRepository holdings, TransactionRepository transactions) {
+        this.users = users;
+        this.wallets = wallets;
+        this.stocks = stocks;
+        this.holdings = holdings;
+        this.transactions = transactions;
     }
 
-    /**
-     * Executes a Buy Stock operation transactionally.
-     * Uses pessimistic write lock on the Wallet record.
-     */
-    @Transactional
-    public TradeResponse buyStock(Long userId, String symbol, BigDecimal quantity) {
-        log.info("Initiating BUY order: User {}, Stock {}, Qty {}", userId, symbol, quantity);
-        
-        String upperSymbol = symbol.toUpperCase();
-
-        // 1. Validate user existence
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
-
-        // 2. Lock the user's wallet to prevent concurrent double-spending race conditions
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> new UserNotFoundException("Wallet not found for user id: " + userId));
-
-        // 3. Validate stock existence
-        Stock stock = stockRepository.findBySymbol(upperSymbol)
-                .orElseThrow(() -> new StockNotFoundException("Stock symbol not found: " + upperSymbol));
-
-        // 4. Calculate total trade amount
-        BigDecimal pricePerShare = stock.getCurrentPrice();
-        BigDecimal totalCost = pricePerShare.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
-
-        // 5. Verify sufficient wallet balance
-        if (wallet.getBalance().compareTo(totalCost) < 0) {
-            log.warn("BUY failed: User {} has insufficient funds. Balance: ${}, Cost: ${}", userId, wallet.getBalance(), totalCost);
-            throw new InsufficientBalanceException("Insufficient funds. Available: $" + wallet.getBalance() + ", Required: $" + totalCost);
+    // INTERVIEW: Overloading selects a method by its parameter types at compile time.
+    public BigDecimal calculateQuantity(BigDecimal amount, BigDecimal price) {
+        if (amount == null || price == null || amount.signum() <= 0 || price.signum() <= 0) {
+            throw new BusinessRuleException("Amount and price must be positive.");
         }
-
-        // 6. Deduct balance from Wallet
-        wallet.setBalance(wallet.getBalance().subtract(totalCost));
-        walletRepository.save(wallet);
-
-        // 7. Upsert Holding (Update avg buy price if already holding, otherwise insert new holding)
-        Optional<Holding> existingHoldingOpt = holdingRepository.findByUserIdAndStockSymbol(userId, upperSymbol);
-        BigDecimal finalHoldingQty;
-        
-        if (existingHoldingOpt.isPresent()) {
-            Holding holding = existingHoldingOpt.get();
-            BigDecimal currentQty = holding.getQuantity();
-            BigDecimal currentAvgPrice = holding.getAveragePrice();
-            
-            // Calculate new average price: (CurrentValue + NewValue) / TotalQty
-            BigDecimal currentValue = currentQty.multiply(currentAvgPrice);
-            BigDecimal addedValue = quantity.multiply(pricePerShare);
-            BigDecimal totalValue = currentValue.add(addedValue);
-            
-            finalHoldingQty = currentQty.add(quantity);
-            BigDecimal newAvgPrice = totalValue.divide(finalHoldingQty, 2, RoundingMode.HALF_UP);
-            
-            holding.setQuantity(finalHoldingQty);
-            holding.setAveragePrice(newAvgPrice);
-            holdingRepository.save(holding);
-            log.info("Updated holding for user {}: Stock {}, new Qty {}, new AvgPrice ${}", userId, upperSymbol, finalHoldingQty, newAvgPrice);
-        } else {
-            Holding holding = Holding.builder()
-                    .user(user)
-                    .stockSymbol(upperSymbol)
-                    .quantity(quantity)
-                    .averagePrice(pricePerShare)
-                    .build();
-            holdingRepository.save(holding);
-            finalHoldingQty = quantity;
-            log.info("Created new holding for user {}: Stock {}, Qty {}, Price ${}", userId, upperSymbol, quantity, pricePerShare);
-        }
-
-        // 8. Log audit transaction record
-        Transaction transaction = Transaction.builder()
-                .user(user)
-                .stockSymbol(upperSymbol)
-                .type(TransactionType.BUY)
-                .quantity(quantity)
-                .price(pricePerShare)
-                .totalAmount(totalCost)
-                .build();
-        Transaction savedTx = transactionRepository.save(transaction);
-
-        log.info("BUY order successfully executed. Transaction ID: {}", savedTx.getId());
-
-        return TradeResponse.builder()
-                .transactionId(savedTx.getId())
-                .symbol(upperSymbol)
-                .type("BUY")
-                .quantity(quantity)
-                .price(pricePerShare)
-                .totalAmount(totalCost)
-                .remainingBalance(wallet.getBalance())
-                .build();
+        return amount.divide(price, 4, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Executes a Sell Stock operation transactionally.
-     * Uses pessimistic write lock on the Wallet record.
-     */
-    @Transactional
-    public TradeResponse sellStock(Long userId, String symbol, BigDecimal quantity) {
-        log.info("Initiating SELL order: User {}, Stock {}, Qty {}", userId, symbol, quantity);
+    public BigDecimal calculateQuantity(BigDecimal amount, Stock stock) {
+        return calculateQuantity(amount, stock.getCurrentPrice());
+    }
 
-        String upperSymbol = symbol.toUpperCase();
-
-        // 1. Validate user existence
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
-
-        // 2. Lock user's wallet to prevent balance update anomalies
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> new UserNotFoundException("Wallet not found for user id: " + userId));
-
-        // 3. Validate stock existence
-        Stock stock = stockRepository.findBySymbol(upperSymbol)
-                .orElseThrow(() -> new StockNotFoundException("Stock symbol not found: " + upperSymbol));
-
-        // 4. Validate user holds the stock
-        Holding holding = holdingRepository.findByUserIdAndStockSymbol(userId, upperSymbol)
-                .orElseThrow(() -> new InsufficientHoldingsException("No holdings found for stock symbol: " + upperSymbol));
-
-        // 5. Verify user has enough shares to execute sale
-        if (holding.getQuantity().compareTo(quantity) < 0) {
-            log.warn("SELL failed: User {} has insufficient holdings. Held: {}, Sell request: {}", userId, holding.getQuantity(), quantity);
-            throw new InsufficientHoldingsException("Insufficient holdings. Held shares: " + holding.getQuantity() + ", Requested sell: " + quantity);
+    // INTERVIEW: A transaction commits wallet, holding, and audit changes together or rolls all back.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public TradeResponse buyStock(Long userId, Long stockId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(new BigDecimal("10")) < 0
+                || amount.compareTo(new BigDecimal("500")) > 0 || amount.stripTrailingZeros().scale() > 2) {
+            throw new BusinessRuleException("Investment amount must be between ₹10 and ₹500 with at most two decimals.");
         }
-
-        // 6. Calculate total revenue
-        BigDecimal pricePerShare = stock.getCurrentPrice();
-        BigDecimal totalRevenue = pricePerShare.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
-
-        // 7. Credit Wallet balance
-        wallet.setBalance(wallet.getBalance().add(totalRevenue));
-        walletRepository.save(wallet);
-
-        // 8. Decrement Holding (Delete record if remaining shares are 0)
-        BigDecimal remainingQty = holding.getQuantity().subtract(quantity);
-        if (remainingQty.compareTo(BigDecimal.ZERO) <= 0) {
-            holdingRepository.delete(holding);
-            log.info("Holding deleted for user {} (fully liquidated stock: {})", userId, upperSymbol);
+        User user = requireUser(userId);
+        Wallet wallet = requireWallet(userId);
+        Stock stock = requireStock(stockId);
+        BigDecimal quantity = calculateQuantity(amount, stock);
+        if (quantity.signum() == 0) {
+            throw new BusinessRuleException("Investment is too small to buy 0.0001 shares at this price.");
+        }
+        wallet.debit(amount);
+        Holding holding = holdings.findByUserIdAndStockId(userId, stockId).orElse(null);
+        if (holding == null) {
+            holding = new Holding(user, stock, quantity, stock.getCurrentPrice());
         } else {
-            holding.setQuantity(remainingQty);
-            holdingRepository.save(holding);
-            log.info("Holding updated for user {}: Stock {}, remaining Qty {}", userId, upperSymbol, remainingQty);
+            holding.add(quantity, stock.getCurrentPrice());
         }
+        // INTERVIEW: @Version rejects stale wallet updates; no request retries or partial commits are hidden.
+        wallets.saveAndFlush(wallet);
+        holdings.save(holding);
+        Transaction transaction = transactions.saveAndFlush(new Transaction(user, stock,
+                TransactionType.BUY, quantity, stock.getCurrentPrice(), amount.setScale(2)));
+        return response(transaction, wallet);
+    }
 
-        // 9. Log audit transaction record
-        Transaction transaction = Transaction.builder()
-                .user(user)
-                .stockSymbol(upperSymbol)
-                .type(TransactionType.SELL)
-                .quantity(quantity)
-                .price(pricePerShare)
-                .totalAmount(totalRevenue)
-                .build();
-        Transaction savedTx = transactionRepository.save(transaction);
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public TradeResponse sellStock(Long userId, Long stockId, BigDecimal quantity) {
+        if (quantity == null || quantity.signum() <= 0 || quantity.stripTrailingZeros().scale() > 4) {
+            throw new BusinessRuleException("Quantity must be positive with at most four decimals.");
+        }
+        User user = requireUser(userId);
+        Wallet wallet = requireWallet(userId);
+        Stock stock = requireStock(stockId);
+        Holding holding = holdings.findByUserIdAndStockId(userId, stockId)
+                .orElseThrow(() -> new InsufficientHoldingsException("You do not own this stock."));
+        holding.remove(quantity);
+        BigDecimal amount = quantity.multiply(stock.getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
+        if (amount.signum() == 0) {
+            throw new BusinessRuleException("Sale proceeds must be at least ₹0.01.");
+        }
+        wallet.credit(amount);
+        wallets.saveAndFlush(wallet);
+        if (holding.getQuantity().signum() == 0) {
+            holdings.delete(holding);
+        } else {
+            holdings.save(holding);
+        }
+        Transaction transaction = transactions.saveAndFlush(new Transaction(user, stock,
+                TransactionType.SELL, quantity, stock.getCurrentPrice(), amount));
+        return response(transaction, wallet);
+    }
 
-        log.info("SELL order successfully executed. Transaction ID: {}", savedTx.getId());
+    private User requireUser(Long id) {
+        return users.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found."));
+    }
 
-        return TradeResponse.builder()
-                .transactionId(savedTx.getId())
-                .symbol(upperSymbol)
-                .type("SELL")
-                .quantity(quantity)
-                .price(pricePerShare)
-                .totalAmount(totalRevenue)
-                .remainingBalance(wallet.getBalance())
-                .build();
+    private Wallet requireWallet(Long id) {
+        return wallets.findByUserId(id).orElseThrow(() -> new ResourceNotFoundException("Wallet not found."));
+    }
+
+    private Stock requireStock(Long id) {
+        return stocks.findById(id).orElseThrow(() -> new ResourceNotFoundException("Stock not found."));
+    }
+
+    private TradeResponse response(Transaction tx, Wallet wallet) {
+        return new TradeResponse(tx.getId(), tx.getStock().getId(), tx.getStock().getSymbol(),
+                tx.getType().name(), tx.getQuantity(), tx.getPrice(), tx.getAmount(), wallet.getBalance());
     }
 }
